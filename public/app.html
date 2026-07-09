@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Booking App — schedule without collisions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F7F7F3; --ink: #101418; --muted: #5B6472; --line: #E4E4DC;
+  --indigo: #4353FF; --indigo-soft: #EDEFFF; --mint: #2BB673; --mint-soft: #E7F7EF;
+  --amber: #E8912D; --amber-soft: #FCF1E2; --red: #D64545; --red-soft: #FBEAEA;
+  --radius: 14px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--ink);
+  -webkit-font-smoothing: antialiased; min-height: 100vh;
+}
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: linear-gradient(var(--line) 1px, transparent 1px);
+  background-size: 100% 72px; opacity: .4;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 70%);
+}
+.wrap { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+.logo { font-family: 'Space Grotesk'; font-weight: 700; font-size: 18px; letter-spacing: -.5px; display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
+.logo .mark { width: 28px; height: 28px; border-radius: 8px; background: var(--indigo); display: grid; place-items: center; color: #fff; font-size: 14px; box-shadow: 0 4px 14px rgba(67,83,255,.35); }
+.nav-right { display: flex; align-items: center; gap: 12px; }
+.user-chip { font-size: 13px; color: var(--muted); background: #fff; border: 1px solid var(--line); padding: 7px 14px; border-radius: 100px; display: none; }
+.user-chip b { color: var(--ink); font-weight: 600; }
+.user-chip .role { color: var(--indigo); font-weight: 600; text-transform: uppercase; font-size: 10.5px; letter-spacing: .05em; margin-left: 6px; }
+
+.btn { font: 600 14px 'Inter'; border: none; cursor: pointer; text-decoration: none; padding: 11px 20px; border-radius: 10px; transition: transform .15s, box-shadow .15s, opacity .15s; display: inline-flex; align-items: center; gap: 8px; }
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--indigo); color: #fff; box-shadow: 0 5px 16px rgba(67,83,255,.3); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(67,83,255,.38); }
+.btn-primary:disabled { opacity: .55; cursor: default; transform: none; }
+.btn-ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+.btn-ghost:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(16,20,24,.07); }
+.btn-sm { padding: 7px 13px; font-size: 12.5px; border-radius: 8px; }
+
+/* ---------- auth ---------- */
+#authView { display: grid; place-items: center; padding: 56px 0 80px; }
+.auth-card { width: 100%; max-width: 420px; background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 34px 32px 36px; box-shadow: 0 24px 60px -20px rgba(16,20,24,.18); animation: rise .6s ease; }
+.auth-card h1 { font-family: 'Space Grotesk'; font-size: 26px; letter-spacing: -1px; margin-bottom: 6px; }
+.auth-card .hint { font-size: 14px; color: var(--muted); margin-bottom: 24px; line-height: 1.55; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; background: #F1F1EA; border-radius: 10px; padding: 4px; margin-bottom: 22px; }
+.tabs button { border: none; background: transparent; font: 600 13.5px 'Inter'; padding: 9px; border-radius: 8px; cursor: pointer; color: var(--muted); transition: all .15s; }
+.tabs button.on { background: #fff; color: var(--ink); box-shadow: 0 2px 8px rgba(16,20,24,.08); }
+label { display: block; font: 600 12.5px 'Inter'; color: var(--muted); margin: 0 0 6px 2px; letter-spacing: .02em; }
+input, select {
+  width: 100%; font: 500 14.5px 'Inter'; color: var(--ink); background: #FBFBF8;
+  border: 1.5px solid var(--line); border-radius: 10px; padding: 11px 14px; margin-bottom: 16px;
+  outline: none; transition: border .15s, box-shadow .15s;
+}
+input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(67,83,255,.13); background: #fff; }
+.auth-card .btn { width: 100%; justify-content: center; margin-top: 4px; }
+.field-err { color: var(--red); font-size: 12.5px; margin: -10px 2px 12px; display: none; }
+
+/* ---------- app ---------- */
+#appView { display: none; padding-bottom: 70px; }
+.app-grid { display: grid; grid-template-columns: 360px 1fr; gap: 22px; align-items: start; margin-top: 10px; }
+.panel { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; animation: rise .5s ease; }
+.panel h2 { font-family: 'Space Grotesk'; font-size: 19px; letter-spacing: -.5px; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
+.panel h2 .ico { width: 30px; height: 30px; border-radius: 8px; background: var(--indigo-soft); color: var(--indigo); display: grid; place-items: center; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.day-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+.day-head input { width: auto; margin: 0; padding: 9px 13px; }
+.count { font-size: 13px; color: var(--muted); }
+
+/* day strip */
+.strip { position: relative; height: 58px; background: #FBFBF8; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; margin-bottom: 20px; }
+.strip .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.strip .tick small { position: absolute; top: 5px; left: 5px; font: 500 10px 'JetBrains Mono'; color: #A6ACB8; }
+.sslot { position: absolute; top: 24px; height: 26px; border-radius: 6px; background: var(--indigo); color: #fff; font: 600 11px 'Inter'; display: flex; align-items: center; padding: 0 9px; white-space: nowrap; overflow: hidden; animation: rise .4s ease; }
+.sslot.cancelled { background: #C9CDD6; text-decoration: line-through; }
+.strip .empty { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; color: #A6ACB8; }
+
+/* bookings list */
+.blist { display: flex; flex-direction: column; gap: 10px; }
+.bk { display: flex; align-items: center; gap: 14px; border: 1px solid var(--line); border-radius: 12px; padding: 13px 16px; background: #FBFBF8; transition: transform .15s, box-shadow .15s; animation: rise .4s ease; }
+.bk:hover { transform: translateY(-1px); box-shadow: 0 8px 18px -8px rgba(16,20,24,.12); }
+.bk .time { font: 500 12.5px 'JetBrains Mono'; color: var(--muted); min-width: 118px; }
+.bk .title { font-weight: 600; font-size: 14.5px; flex: 1; }
+.bk .who { font-size: 12px; color: var(--muted); }
+.chip { font: 600 11px 'Inter'; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 100px; }
+.chip.confirmed { background: var(--mint-soft); color: var(--mint); }
+.chip.cancelled { background: #EFEFEA; color: #9AA0AB; }
+.bk .actions { display: flex; gap: 8px; }
+.bk .cancel { background: var(--amber-soft); color: #A05F12; }
+.bk .hard { background: var(--red-soft); color: var(--red); }
+.empty-list { text-align: center; color: #A6ACB8; font-size: 14px; padding: 34px 0 26px; }
+.empty-list b { display: block; font-family: 'Space Grotesk'; font-size: 17px; color: var(--muted); margin-bottom: 6px; }
+
+/* toasts */
+#toasts { position: fixed; right: 22px; bottom: 22px; display: flex; flex-direction: column; gap: 10px; z-index: 50; }
+.toast { background: var(--ink); color: #fff; font: 500 13.5px 'Inter'; padding: 13px 18px; border-radius: 11px; box-shadow: 0 14px 34px rgba(16,20,24,.3); animation: toastIn .35s ease; max-width: 340px; }
+.toast.ok { background: #0E4B30; } .toast.warn { background: #6B4A12; } .toast.err { background: #6B1F1F; }
+.toast b { font-family: 'JetBrains Mono'; font-weight: 500; }
+@keyframes toastIn { from { opacity: 0; transform: translateY(12px);} to { opacity: 1; transform: none; } }
+.toast.out { opacity: 0; transform: translateY(8px); transition: all .3s; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(12px);} to { opacity: 1; transform: none; } }
+@media (max-width: 860px) { .app-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav>
+    <a class="logo" href="/"><span class="mark">B</span>Booking API</a>
+    <div class="nav-right">
+      <span class="user-chip" id="userChip"></span>
+      <a class="btn btn-ghost btn-sm" href="/docs">Docs</a>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn" style="display:none">Log out</button>
+    </div>
+  </nav>
+
+  <!-- ============ AUTH ============ -->
+  <section id="authView">
+    <div class="auth-card">
+      <h1>Welcome back</h1>
+      <p class="hint">Sign in to manage your bookings. New here? Create an account — the first registered user becomes an <b>admin</b>.</p>
+      <div class="tabs">
+        <button id="tabLogin" class="on">Log in</button>
+        <button id="tabRegister">Create account</button>
+      </div>
+      <form id="authForm" novalidate>
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@example.com" autocomplete="email" required>
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="At least 6 characters" autocomplete="current-password" required minlength="6">
+        <p class="field-err" id="authErr"></p>
+        <button class="btn btn-primary" id="authSubmit" type="submit">Log in</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ APP ============ -->
+  <section id="appView">
+    <div class="app-grid">
+
+      <div class="panel">
+        <h2><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>New booking</h2>
+        <form id="createForm" novalidate>
+          <label for="title">Title</label>
+          <input type="text" id="title" placeholder="Haircut, meeting, court #2…" required maxlength="60">
+          <label for="date">Date</label>
+          <input type="date" id="date" required>
+          <div class="two">
+            <div>
+              <label for="start">Starts</label>
+              <input type="time" id="start" required step="900">
+            </div>
+            <div>
+              <label for="end">Ends</label>
+              <input type="time" id="end" required step="900">
+            </div>
+          </div>
+          <p class="field-err" id="createErr"></p>
+          <button class="btn btn-primary" id="createBtn" type="submit" style="width:100%;justify-content:center">Book the slot</button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <div class="day-head">
+          <h2 style="margin:0"><span class="ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>Schedule</h2>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="count" id="dayCount"></span>
+            <input type="date" id="dayPick">
+          </div>
+        </div>
+        <div class="strip" id="dayStrip"></div>
+        <div class="blist" id="list"></div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+<div id="toasts"></div>
+
+<script>
+(function () {
+  'use strict';
+  var API = '';
+  var state = { token: null, user: null, bookings: [] };
+
+  /* ---------- helpers ---------- */
+  function $(id) { return document.getElementById(id); }
+  function toast(msg, kind) {
+    var t = document.createElement('div');
+    t.className = 'toast' + (kind ? ' ' + kind : '');
+    t.innerHTML = msg;
+    $('toasts').appendChild(t);
+    setTimeout(function () { t.classList.add('out'); setTimeout(function () { t.remove(); }, 320); }, 3600);
+  }
+  function api(method, path, body) {
+    return fetch(API + path, {
+      method: method,
+      headers: Object.assign({ 'Content-Type': 'application/json' },
+        state.token ? { 'Authorization': 'Bearer ' + state.token } : {}),
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (res) {
+      return res.text().then(function (txt) {
+        var data = null; try { data = txt ? JSON.parse(txt) : null; } catch (e) {}
+        if (!res.ok) { var err = new Error((data && data.error) || ('HTTP ' + res.status)); err.status = res.status; throw err; }
+        return data;
+      });
+    });
+  }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function fmtTime(iso) { var d = new Date(iso); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function dateKey(iso) { var d = new Date(iso); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function todayKey() { return dateKey(new Date().toISOString()); }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  /* ---------- session ---------- */
+  function saveSession() { try { localStorage.setItem('bk_session', JSON.stringify({ token: state.token, user: state.user })); } catch (e) {} }
+  function loadSession() { try { var s = JSON.parse(localStorage.getItem('bk_session')); if (s && s.token) { state.token = s.token; state.user = s.user; } } catch (e) {} }
+  function clearSession() { try { localStorage.removeItem('bk_session'); } catch (e) {} }
+
+  /* ---------- views ---------- */
+  function showApp() {
+    $('authView').style.display = 'none';
+    $('appView').style.display = 'block';
+    $('logoutBtn').style.display = 'inline-flex';
+    var chip = $('userChip');
+    chip.style.display = 'inline-block';
+    chip.innerHTML = '<b>' + esc(state.user.email) + '</b>' + (state.user.role === 'admin' ? '<span class="role">admin</span>' : '');
+    refresh();
+  }
+  function showAuth() {
+    $('authView').style.display = 'grid';
+    $('appView').style.display = 'none';
+    $('logoutBtn').style.display = 'none';
+    $('userChip').style.display = 'none';
+  }
+
+  /* ---------- auth ---------- */
+  var mode = 'login';
+  function setMode(m) {
+    mode = m;
+    $('tabLogin').classList.toggle('on', m === 'login');
+    $('tabRegister').classList.toggle('on', m === 'register');
+    $('authSubmit').textContent = m === 'login' ? 'Log in' : 'Create account';
+    $('password').autocomplete = m === 'login' ? 'current-password' : 'new-password';
+    $('authErr').style.display = 'none';
+  }
+  $('tabLogin').onclick = function () { setMode('login'); };
+  $('tabRegister').onclick = function () { setMode('register'); };
+
+  $('authForm').onsubmit = function (e) {
+    e.preventDefault();
+    var email = $('email').value.trim(), pass = $('password').value;
+    var errEl = $('authErr'); errEl.style.display = 'none';
+    if (!email || pass.length < 6) { errEl.textContent = 'Enter a valid email and a password of at least 6 characters.'; errEl.style.display = 'block'; return; }
+    $('authSubmit').disabled = true;
+    api('POST', '/api/auth/' + (mode === 'login' ? 'login' : 'register'), { email: email, password: pass })
+      .then(function (data) {
+        state.token = data.token; state.user = data.user; saveSession();
+        toast(mode === 'login' ? 'Welcome back!' : 'Account created' + (data.user.role === 'admin' ? ' — you are the <b>admin</b>' : ''), 'ok');
+        showApp();
+      })
+      .catch(function (err) { errEl.textContent = err.message; errEl.style.display = 'block'; })
+      .finally(function () { $('authSubmit').disabled = false; });
+  };
+
+  $('logoutBtn').onclick = function () { state.token = null; state.user = null; clearSession(); showAuth(); toast('Logged out'); };
+
+  /* ---------- bookings ---------- */
+  function refresh() {
+    api('GET', '/api/bookings')
+      .then(function (rows) { state.bookings = rows || []; render(); })
+      .catch(function (err) {
+        if (err.status === 401) { clearSession(); state.token = null; showAuth(); toast('Session expired — log in again', 'warn'); }
+        else toast(err.message, 'err');
+      });
+  }
+
+  function render() {
+    var day = $('dayPick').value || todayKey();
+    var dayRows = state.bookings.filter(function (b) { return dateKey(b.starts_at) === day; });
+    $('dayCount').textContent = dayRows.length ? dayRows.length + ' on this day' : '';
+
+    /* strip 08:00–20:00 */
+    var strip = $('dayStrip'); strip.innerHTML = '';
+    for (var h = 8; h <= 20; h += 3) {
+      var left = ((h - 8) / 12) * 100;
+      var tick = document.createElement('div'); tick.className = 'tick'; tick.style.left = left + '%';
+      tick.innerHTML = '<small>' + pad(h) + ':00</small>'; strip.appendChild(tick);
+    }
+    var placed = 0;
+    dayRows.forEach(function (b) {
+      var s = new Date(b.starts_at), e = new Date(b.ends_at);
+      var sh = s.getHours() + s.getMinutes() / 60, eh = e.getHours() + e.getMinutes() / 60;
+      var l = Math.max(0, (sh - 8) / 12 * 100), w = Math.min(100 - l, Math.max(2.5, (eh - sh) / 12 * 100));
+      if (l >= 100 || eh <= 8) return;
+      var el = document.createElement('div');
+      el.className = 'sslot' + (b.status === 'cancelled' ? ' cancelled' : '');
+      el.style.left = l + '%'; el.style.width = w + '%';
+      el.textContent = b.title; el.title = b.title + ' · ' + fmtTime(b.starts_at) + '–' + fmtTime(b.ends_at);
+      strip.appendChild(el); placed++;
+    });
+    if (!placed) { var em = document.createElement('div'); em.className = 'empty'; em.textContent = 'No bookings between 08:00 and 20:00'; strip.appendChild(em); }
+
+    /* list */
+    var list = $('list'); list.innerHTML = '';
+    if (!state.bookings.length) {
+      list.innerHTML = '<div class="empty-list"><b>No bookings yet</b>Create your first one on the left — then try booking an overlapping slot and watch the API say no.</div>';
+      return;
+    }
+    var sorted = state.bookings.slice().sort(function (a, b) { return new Date(a.starts_at) - new Date(b.starts_at); });
+    sorted.forEach(function (b) {
+      var row = document.createElement('div'); row.className = 'bk';
+      var isAdmin = state.user && state.user.role === 'admin';
+      row.innerHTML =
+        '<span class="time">' + dateKey(b.starts_at) + '<br>' + fmtTime(b.starts_at) + '–' + fmtTime(b.ends_at) + '</span>' +
+        '<span class="title">' + esc(b.title) + (isAdmin ? ' <span class="who">· user #' + b.user_id + '</span>' : '') + '</span>' +
+        '<span class="chip ' + b.status + '">' + b.status + '</span>' +
+        '<span class="actions"></span>';
+      var actions = row.querySelector('.actions');
+      if (b.status === 'confirmed') {
+        var c = document.createElement('button'); c.className = 'btn btn-sm cancel'; c.textContent = 'Cancel';
+        c.onclick = function () {
+          api('DELETE', '/api/bookings/' + b.id)
+            .then(function () { toast('Booking cancelled'); refresh(); })
+            .catch(function (err) { toast(err.message, 'err'); });
+        };
+        actions.appendChild(c);
+      }
+      if (isAdmin) {
+        var h = document.createElement('button'); h.className = 'btn btn-sm hard'; h.textContent = 'Delete';
+        h.onclick = function () {
+          if (!confirm('Permanently delete "' + b.title + '"?')) return;
+          api('DELETE', '/api/bookings/' + b.id + '/hard')
+            .then(function () { toast('Deleted permanently'); refresh(); })
+            .catch(function (err) { toast(err.message, 'err'); });
+        };
+        actions.appendChild(h);
+      }
+      list.appendChild(row);
+    });
+  }
+
+  $('dayPick').onchange = render;
+
+  $('createForm').onsubmit = function (e) {
+    e.preventDefault();
+    var errEl = $('createErr'); errEl.style.display = 'none';
+    var title = $('title').value.trim(), date = $('date').value, start = $('start').value, end = $('end').value;
+    if (!title || !date || !start || !end) { errEl.textContent = 'Fill in all fields.'; errEl.style.display = 'block'; return; }
+    var starts = new Date(date + 'T' + start), ends = new Date(date + 'T' + end);
+    if (starts >= ends) { errEl.textContent = 'End time must be after start time.'; errEl.style.display = 'block'; return; }
+    $('createBtn').disabled = true;
+    api('POST', '/api/bookings', { title: title, starts_at: starts.toISOString(), ends_at: ends.toISOString() })
+      .then(function () {
+        toast('<b>201</b> Booked: ' + esc(title), 'ok');
+        $('title').value = '';
+        $('dayPick').value = date;
+        refresh();
+      })
+      .catch(function (err) {
+        if (err.status === 409) toast('<b>409</b> ' + esc(err.message), 'warn');
+        else toast(esc(err.message), 'err');
+        errEl.textContent = err.message; errEl.style.display = 'block';
+      })
+      .finally(function () { $('createBtn').disabled = false; });
+  };
+
+  /* ---------- init ---------- */
+  var today = todayKey();
+  $('date').value = today; $('dayPick').value = today;
+  loadSession();
+  if (state.token && state.user) { showApp(); } else { showAuth(); }
+})();
+</script>
+</body>
+</html>
