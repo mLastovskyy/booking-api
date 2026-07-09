@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Booking API — REST API for time-slot bookings</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0d1117; color: #e6edf3; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .card { max-width: 640px; width: 100%; }
+  .badge {
+    display: inline-block; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+    color: #7ee787; border: 1px solid #2ea04326; background: #2ea04315;
+    padding: 4px 12px; border-radius: 20px; margin-bottom: 20px;
+  }
+  h1 { font-size: 40px; margin-bottom: 12px; letter-spacing: -1px; }
+  h1 span { color: #58a6ff; }
+  .sub { color: #8b949e; font-size: 17px; line-height: 1.6; margin-bottom: 28px; }
+  .features { list-style: none; margin-bottom: 32px; }
+  .features li {
+    padding: 10px 0 10px 30px; position: relative; color: #c9d1d9;
+    border-bottom: 1px solid #21262d; font-size: 15px;
+  }
+  .features li:before { content: "✓"; position: absolute; left: 4px; color: #7ee787; font-weight: 700; }
+  .buttons { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn {
+    padding: 12px 24px; border-radius: 8px; text-decoration: none;
+    font-weight: 600; font-size: 15px; transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: #238636; color: #fff; }
+  .btn-secondary { background: #21262d; color: #e6edf3; border: 1px solid #30363d; }
+  .stack { margin-top: 32px; color: #8b949e; font-size: 13px; }
+  .stack code { background: #21262d; padding: 2px 8px; border-radius: 4px; margin: 0 2px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">Live demo</div>
+    <h1>Booking <span>API</span></h1>
+    <p class="sub">Production-style REST API for time-slot bookings. Try every endpoint right now in the interactive documentation — no setup required.</p>
+    <ul class="features">
+      <li>JWT authentication with 24h token expiry</li>
+      <li>Role-based access — users manage their bookings, admins manage all</li>
+      <li>Overlap validation — conflicting time slots rejected with 409</li>
+      <li>Soft cancel and admin-only hard delete</li>
+      <li>Interactive Swagger / OpenAPI documentation</li>
+      <li>Docker-ready, zero-config storage</li>
+    </ul>
+    <div class="buttons">
+      <a class="btn btn-primary" href="/docs">Open API Docs →</a>
+      <a class="btn btn-secondary" href="https://github.com/mLastovskyy/booking-api" target="_blank">View on GitHub</a>
+    </div>
+    <p class="stack">Built with <code>Node.js</code><code>Express</code><code>SQLite</code><code>JWT</code><code>Swagger</code></p>
+  </div>
+</body>
+</html>

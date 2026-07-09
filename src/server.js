@@ -8,6 +8,7 @@ const bookingRoutes = require('./routes/bookings');
 
 const app = express();
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Swagger docs
 const swaggerDocument = YAML.load(path.join(__dirname, '..', 'openapi.yaml'));
