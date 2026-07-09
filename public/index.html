@@ -3,59 +3,321 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Booking API — REST API for time-slot bookings</title>
+<title>Booking API — conflict-free time-slot bookings</title>
+<meta name="description" content="Production-style REST API for time-slot bookings. JWT auth, role-based access, overlap validation, interactive docs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #0d1117; color: #e6edf3; min-height: 100vh;
-    display: flex; align-items: center; justify-content: center; padding: 24px;
-  }
-  .card { max-width: 640px; width: 100%; }
-  .badge {
-    display: inline-block; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
-    color: #7ee787; border: 1px solid #2ea04326; background: #2ea04315;
-    padding: 4px 12px; border-radius: 20px; margin-bottom: 20px;
-  }
-  h1 { font-size: 40px; margin-bottom: 12px; letter-spacing: -1px; }
-  h1 span { color: #58a6ff; }
-  .sub { color: #8b949e; font-size: 17px; line-height: 1.6; margin-bottom: 28px; }
-  .features { list-style: none; margin-bottom: 32px; }
-  .features li {
-    padding: 10px 0 10px 30px; position: relative; color: #c9d1d9;
-    border-bottom: 1px solid #21262d; font-size: 15px;
-  }
-  .features li:before { content: "✓"; position: absolute; left: 4px; color: #7ee787; font-weight: 700; }
-  .buttons { display: flex; gap: 12px; flex-wrap: wrap; }
-  .btn {
-    padding: 12px 24px; border-radius: 8px; text-decoration: none;
-    font-weight: 600; font-size: 15px; transition: opacity .15s;
-  }
-  .btn:hover { opacity: .85; }
-  .btn-primary { background: #238636; color: #fff; }
-  .btn-secondary { background: #21262d; color: #e6edf3; border: 1px solid #30363d; }
-  .stack { margin-top: 32px; color: #8b949e; font-size: 13px; }
-  .stack code { background: #21262d; padding: 2px 8px; border-radius: 4px; margin: 0 2px; font-size: 12px; }
+:root {
+  --bg: #F7F7F3;
+  --ink: #101418;
+  --muted: #5B6472;
+  --line: #E4E4DC;
+  --indigo: #4353FF;
+  --indigo-soft: #EDEFFF;
+  --mint: #2BB673;
+  --amber: #E8912D;
+  --terminal: #0C1220;
+  --radius: 14px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: var(--bg); color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+/* schedule-grid backdrop */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: linear-gradient(var(--line) 1px, transparent 1px);
+  background-size: 100% 72px; opacity: .45;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 70%);
+}
+.wrap { position: relative; z-index: 1; max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+/* ---- nav ---- */
+nav { display: flex; align-items: center; justify-content: space-between; padding: 26px 0; }
+.logo { font-family: 'Space Grotesk'; font-weight: 700; font-size: 19px; letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; }
+.logo .mark {
+  width: 30px; height: 30px; border-radius: 9px; background: var(--indigo);
+  display: grid; place-items: center; color: #fff; font-size: 15px;
+  box-shadow: 0 4px 14px rgba(67,83,255,.35);
+}
+.nav-links { display: flex; gap: 10px; }
+.nav-links a {
+  font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none;
+  padding: 8px 14px; border-radius: 8px; transition: color .15s, background .15s;
+}
+.nav-links a:hover { color: var(--ink); background: #EDEDE6; }
+
+/* ---- hero ---- */
+.hero { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; padding: 64px 0 88px; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--indigo); background: var(--indigo-soft);
+  padding: 6px 14px; border-radius: 100px; margin-bottom: 22px;
+}
+.eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(43,182,115,.5);} 50% { box-shadow: 0 0 0 6px rgba(43,182,115,0);} }
+h1 {
+  font-family: 'Space Grotesk'; font-weight: 700; font-size: clamp(38px, 4.6vw, 56px);
+  line-height: 1.04; letter-spacing: -2px; margin-bottom: 20px;
+}
+h1 em { font-style: normal; color: var(--indigo); position: relative; white-space: nowrap; }
+h1 em svg { position: absolute; left: 0; bottom: -8px; width: 100%; height: 12px; }
+h1 em svg path {
+  stroke: var(--indigo); stroke-width: 3; fill: none; stroke-linecap: round;
+  stroke-dasharray: 320; stroke-dashoffset: 320; animation: draw 1s .8s ease forwards;
+}
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.sub { font-size: 17.5px; line-height: 1.65; color: var(--muted); max-width: 46ch; margin-bottom: 34px; }
+.cta { display: flex; gap: 14px; flex-wrap: wrap; }
+.btn {
+  font-family: 'Inter'; font-weight: 600; font-size: 15px; text-decoration: none;
+  padding: 14px 26px; border-radius: 11px; transition: transform .15s, box-shadow .15s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--indigo); color: #fff; box-shadow: 0 6px 20px rgba(67,83,255,.32); }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(67,83,255,.4); }
+.btn-ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+.btn-ghost:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(16,20,24,.08); }
+
+/* ---- terminal (signature) ---- */
+.terminal {
+  background: var(--terminal); border-radius: var(--radius);
+  box-shadow: 0 30px 70px -18px rgba(12,18,32,.5), 0 0 0 1px rgba(255,255,255,.04) inset;
+  overflow: hidden; transform: rotate(.6deg); transition: transform .4s ease;
+}
+.terminal:hover { transform: rotate(0deg) translateY(-4px); }
+.t-bar { display: flex; align-items: center; gap: 7px; padding: 13px 16px; background: rgba(255,255,255,.04); }
+.t-bar i { width: 11px; height: 11px; border-radius: 50%; display: block; }
+.t-bar i:nth-child(1){ background:#FF5F57; } .t-bar i:nth-child(2){ background:#FEBC2E; } .t-bar i:nth-child(3){ background:#28C840; }
+.t-bar span { margin-left: auto; margin-right: auto; font: 500 12px 'JetBrains Mono'; color: #6B7690; }
+.t-body {
+  padding: 20px 22px 26px; font: 400 13px/1.85 'JetBrains Mono';
+  color: #C7D0E0; min-height: 300px; white-space: pre-wrap; word-break: break-word;
+}
+.t-body .p { color: #7C89FF; }         /* prompt */
+.t-body .ok { color: #4ADE9C; }        /* 201 */
+.t-body .warn { color: #FFB454; }      /* 409 */
+.t-body .dim { color: #5F6B85; }
+.cursor { display: inline-block; width: 8px; height: 15px; background: #7C89FF; vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ---- slot strip ---- */
+.strip-section { padding: 8px 0 72px; }
+.strip-label { font: 600 12.5px 'Inter'; letter-spacing:.06em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+.strip {
+  position: relative; height: 64px; background: #fff; border: 1px solid var(--line);
+  border-radius: var(--radius); overflow: hidden;
+}
+.strip .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.strip .tick small { position: absolute; top: 6px; left: 6px; font: 500 10.5px 'JetBrains Mono'; color: #A6ACB8; }
+.slot {
+  position: absolute; top: 26px; height: 28px; border-radius: 7px;
+  font: 600 11.5px 'Inter'; color: #fff; display: flex; align-items: center; padding: 0 12px;
+  opacity: 0; animation: slotIn .5s ease forwards;
+}
+@keyframes slotIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: none; } }
+.slot.a { left: 8%;  width: 17%; background: var(--indigo); animation-delay: .3s; }
+.slot.b { left: 30%; width: 14%; background: var(--mint);  animation-delay: .6s; }
+.slot.c { left: 62%; width: 16%; background: var(--indigo); animation-delay: .9s; }
+.slot.reject {
+  left: 38%; width: 15%; background: repeating-linear-gradient(45deg, #F5B0A1, #F5B0A1 6px, #EF9A87 6px, #EF9A87 12px);
+  color: #7C2D12; animation: rejectIn 3.2s 1.4s ease infinite;
+}
+@keyframes rejectIn {
+  0% { opacity: 0; transform: translateY(10px); }
+  12% { opacity: 1; transform: none; }
+  55% { opacity: 1; transform: none; }
+  70% { opacity: 0; transform: translateY(10px) scale(.96); }
+  100% { opacity: 0; }
+}
+
+/* ---- features ---- */
+.features { padding: 24px 0 90px; }
+.features h2 { font-family:'Space Grotesk'; font-size: 32px; letter-spacing: -1px; margin-bottom: 40px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.card {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 26px 24px; transition: transform .2s ease, box-shadow .2s ease;
+  opacity: 0; transform: translateY(18px);
+}
+.card.vis { opacity: 1; transform: none; transition: opacity .5s ease, transform .5s ease, box-shadow .2s; }
+.card:hover { transform: translateY(-4px); box-shadow: 0 16px 34px -12px rgba(16,20,24,.14); }
+.card .ico {
+  width: 40px; height: 40px; border-radius: 10px; background: var(--indigo-soft);
+  display: grid; place-items: center; margin-bottom: 16px; color: var(--indigo);
+}
+.card h3 { font: 600 16.5px 'Inter'; margin-bottom: 8px; }
+.card p { font-size: 14.5px; line-height: 1.6; color: var(--muted); }
+.card code { font: 500 12px 'JetBrains Mono'; background: #F1F1EA; padding: 1px 6px; border-radius: 5px; }
+
+/* ---- footer ---- */
+footer { border-top: 1px solid var(--line); padding: 30px 0 46px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+footer .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+footer .chips span { font: 500 12px 'JetBrains Mono'; color: var(--muted); background: #fff; border: 1px solid var(--line); padding: 5px 11px; border-radius: 100px; }
+footer p { font-size: 13.5px; color: var(--muted); }
+footer a { color: var(--indigo); text-decoration: none; font-weight: 500; }
+
+/* load-in orchestration */
+.rise { opacity: 0; transform: translateY(16px); animation: rise .7s ease forwards; }
+.d1 { animation-delay: .05s; } .d2 { animation-delay: .15s; } .d3 { animation-delay: .25s; } .d4 { animation-delay: .35s; } .d5 { animation-delay: .5s; }
+@keyframes rise { to { opacity: 1; transform: none; } }
+
+@media (max-width: 880px) {
+  .hero { grid-template-columns: 1fr; gap: 40px; padding: 40px 0 64px; }
+  .grid { grid-template-columns: 1fr; }
+  .terminal { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01s !important; animation-delay: 0s !important; transition: none !important; }
+  .rise, .card { opacity: 1; transform: none; }
+}
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="badge">Live demo</div>
-    <h1>Booking <span>API</span></h1>
-    <p class="sub">Production-style REST API for time-slot bookings. Try every endpoint right now in the interactive documentation — no setup required.</p>
-    <ul class="features">
-      <li>JWT authentication with 24h token expiry</li>
-      <li>Role-based access — users manage their bookings, admins manage all</li>
-      <li>Overlap validation — conflicting time slots rejected with 409</li>
-      <li>Soft cancel and admin-only hard delete</li>
-      <li>Interactive Swagger / OpenAPI documentation</li>
-      <li>Docker-ready, zero-config storage</li>
-    </ul>
-    <div class="buttons">
-      <a class="btn btn-primary" href="/docs">Open API Docs →</a>
-      <a class="btn btn-secondary" href="https://github.com/mLastovskyy/booking-api" target="_blank">View on GitHub</a>
+<div class="wrap">
+
+  <nav class="rise d1">
+    <div class="logo"><span class="mark">B</span>Booking API</div>
+    <div class="nav-links">
+      <a href="/docs">Docs</a>
+      <a href="https://github.com/mLastovskyy/booking-api" target="_blank" rel="noopener">GitHub</a>
     </div>
-    <p class="stack">Built with <code>Node.js</code><code>Express</code><code>SQLite</code><code>JWT</code><code>Swagger</code></p>
-  </div>
+  </nav>
+
+  <section class="hero">
+    <div>
+      <div class="eyebrow rise d1"><span class="dot"></span>Live demo · try it now</div>
+      <h1 class="rise d2">Bookings that <em>never collide<svg viewBox="0 0 200 12" preserveAspectRatio="none"><path d="M2 9 C 60 2, 140 2, 198 8"/></svg></em></h1>
+      <p class="sub rise d3">A production-style REST API for time-slot scheduling. Register, book, and watch the API reject conflicting slots — every endpoint is live in the interactive docs.</p>
+      <div class="cta rise d4">
+        <a class="btn btn-primary" href="/docs">Try the API →</a>
+        <a class="btn btn-ghost" href="https://github.com/mLastovskyy/booking-api" target="_blank" rel="noopener">View source</a>
+      </div>
+    </div>
+    <div class="terminal rise d5" aria-hidden="true">
+      <div class="t-bar"><i></i><i></i><i></i><span>booking-api — live session</span></div>
+      <div class="t-body" id="term"></div>
+    </div>
+  </section>
+
+  <section class="strip-section rise d5">
+    <div class="strip-label">Overlap protection, visualized</div>
+    <div class="strip" aria-hidden="true">
+      <div class="tick" style="left:20%"><small>10:00</small></div>
+      <div class="tick" style="left:40%"><small>11:00</small></div>
+      <div class="tick" style="left:60%"><small>12:00</small></div>
+      <div class="tick" style="left:80%"><small>13:00</small></div>
+      <div class="slot a">Haircut</div>
+      <div class="slot b">Consult</div>
+      <div class="slot reject">409 rejected</div>
+      <div class="slot c">Massage</div>
+    </div>
+  </section>
+
+  <section class="features">
+    <h2>Everything a real booking backend needs</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3>JWT authentication</h3>
+        <p>Register and log in to receive a signed token with 24-hour expiry. Every booking route is protected.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><path d="M17 4l2 2 3.5-3.5"/></svg></div>
+        <h3>Role-based access</h3>
+        <p>Users manage their own bookings; admins see and manage everything, including hard deletes.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></div>
+        <h3>Overlap validation</h3>
+        <p>Conflicting time slots are rejected with a clean <code>409 Conflict</code> — double-booking is impossible by design.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></div>
+        <h3>Interactive docs</h3>
+        <p>Full OpenAPI 3.0 spec rendered with Swagger UI. Authorize once and fire real requests from the browser.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg></div>
+        <h3>Soft cancel history</h3>
+        <p>Cancelled bookings keep their record with a <code>cancelled</code> status, so the schedule stays auditable.</p>
+      </div>
+      <div class="card">
+        <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M7 9l3 3-3 3"/></svg></div>
+        <h3>One-command deploy</h3>
+        <p>Docker-ready with zero-config SQLite storage. Clone, run, and the whole stack is up in under a minute.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="chips"><span>Node.js</span><span>Express</span><span>SQLite</span><span>JWT</span><span>OpenAPI 3.0</span><span>Docker</span></div>
+    <p>Built by <a href="https://github.com/mLastovskyy" target="_blank" rel="noopener">mLastovskyy</a> · backend developer</p>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* terminal typing */
+  var lines = [
+    { t: '$ ', c: 'p', instant: true },
+    { t: 'curl -X POST /api/auth/register', c: '' },
+    { t: '\n{ "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6…", "role": "admin" }\n\n', c: 'dim', instant: true },
+    { t: '$ ', c: 'p', instant: true },
+    { t: 'curl -X POST /api/bookings  # 10:00 → 11:00', c: '' },
+    { t: '\n201 Created', c: 'ok', instant: true },
+    { t: '  { "title": "Haircut", "status": "confirmed" }\n\n', c: 'dim', instant: true },
+    { t: '$ ', c: 'p', instant: true },
+    { t: 'curl -X POST /api/bookings  # 10:30 → 11:30', c: '' },
+    { t: '\n409 Conflict', c: 'warn', instant: true },
+    { t: ' { "error": "Time slot overlaps with existing booking" }\n\n', c: 'dim', instant: true }
+  ];
+  var term = document.getElementById('term');
+  var li = 0, ci = 0;
+  var cursor = document.createElement('span'); cursor.className = 'cursor';
+
+  function typeStep() {
+    if (li >= lines.length) { setTimeout(function () { term.innerHTML = ''; term.appendChild(cursor); li = 0; ci = 0; typeStep(); }, 3800); return; }
+    var line = lines[li];
+    if (line.instant || reduced) {
+      var s = document.createElement('span'); if (line.c) s.className = line.c;
+      s.textContent = line.t; term.insertBefore(s, cursor);
+      li++; ci = 0; setTimeout(typeStep, reduced ? 0 : 240);
+      return;
+    }
+    if (ci === 0) { var sp = document.createElement('span'); if (line.c) sp.className = line.c; sp.dataset.live = '1'; term.insertBefore(sp, cursor); }
+    var live = term.querySelector('[data-live]');
+    live.textContent = line.t.slice(0, ++ci);
+    if (ci >= line.t.length) { live.removeAttribute('data-live'); li++; ci = 0; setTimeout(typeStep, 420); }
+    else setTimeout(typeStep, 26 + Math.random() * 34);
+  }
+  term.appendChild(cursor); typeStep();
+
+  /* scroll-reveal cards */
+  var cards = document.querySelectorAll('.card');
+  if ('IntersectionObserver' in window && !reduced) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('vis'); io.unobserve(e.target); }
+      });
+    }, { threshold: .15 });
+    cards.forEach(function (c, i) { c.style.transitionDelay = (i % 3) * 90 + 'ms'; io.observe(c); });
+  } else {
+    cards.forEach(function (c) { c.classList.add('vis'); });
+  }
+})();
+</script>
 </body>
 </html>
